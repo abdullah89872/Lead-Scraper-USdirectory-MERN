@@ -1,0 +1,15 @@
+{
+  "@context": "https://schema.org",
+  "@type": "RoofingContractor",
+  "name": "Cedar Ridge Roofing",
+  "telephone": "+1-503-555-0101",
+  "email": "info@cedar-ridge-roofing.example.com",
+  "address": {
+    "@type": "PostalAddress",
+    "streetAddress": "4820 Main St",
+    "addressLocality": "Hillsboro",
+    "addressRegion": "OR",
+    "postalCode": "97123"
+  },
+  "url": "https://www.cedar-ridge-roofing.example.com"
+}

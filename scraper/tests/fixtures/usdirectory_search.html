@@ -1,0 +1,40 @@
+<!--
+  Representative USdirectory-style search results page.
+
+  NOTE: the live site could not be reached from the build environment (it
+  geo-blocks non US/Canada IPs with HTTP 403), so this fixture models the
+  documented public page shape: a results list whose cards link to profile
+  slugs of the form /Business-Name-City-ST-1234, plus a pagination block.
+  The parser is written defensively (JSON-LD first, several selector
+  fallbacks) precisely because live markup may differ.
+
+  All data below is synthetic.
+-->
+<!doctype html>
+<html lang="en">
+<head><title>Roofing in Hillsboro, OR - USdirectory</title></head>
+<body>
+  <header><h1>Roofing in Hillsboro, OR</h1></header>
+  <ul class="search-results">
+    <li class="listing result">
+      <h3 class="listing-name"><a href="/Cedar-Ridge-Roofing-Hillsboro-OR-100201">Cedar Ridge Roofing</a></h3>
+      <p class="listing-address">4820 Main St, Hillsboro, OR 97123</p>
+      <p class="listing-phone">(503) 555-0101</p>
+      <a class="profile-link" href="/Cedar-Ridge-Roofing-Hillsboro-OR-100201">View profile</a>
+    </li>
+    <li class="listing result">
+      <h3 class="listing-name"><a href="/Summit-Roofing-Services-Hillsboro-OR-100208">Summit Roofing Services</a></h3>
+      <p class="listing-address">1510 Oak Ave, Hillsboro, OR 97124</p>
+      <a class="profile-link" href="/Summit-Roofing-Services-Hillsboro-OR-100208">View profile</a>
+    </li>
+    <li class="listing result">
+      <h3 class="listing-name"><a href="/Blue-Sky-Roofing-LLC-Hillsboro-OR-100215">Blue Sky Roofing LLC</a></h3>
+      <p class="listing-phone">(503) 555-0117</p>
+      <a class="profile-link" href="/Summit-Roofing-Services-Hillsboro-OR-100208">Duplicate link</a>
+    </li>
+  </ul>
+  <!-- link that must be ignored: not a business profile -->
+  <a href="/Oregon/Hillsboro/Roofing?page=2" rel="next">Next</a>
+  <footer><a href="/about">About</a> <a href="/privacy">Privacy</a></footer>
+</body>
+</html>

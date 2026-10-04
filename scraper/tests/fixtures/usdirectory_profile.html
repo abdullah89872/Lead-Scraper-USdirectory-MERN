@@ -1,0 +1,56 @@
+<!--
+  Representative USdirectory-style business profile page (synthetic data).
+  Combines the two data sources the parser prefers:
+    1. schema.org JSON-LD (ProfessionalService)
+    2. visible markup with tel:/mailto: links
+  See tests/fixtures/usdirectory_search.html for the provenance note.
+-->
+<!doctype html>
+<html lang="en">
+<head>
+  <title>Cedar Ridge Roofing - Hillsboro, OR 97123 | USdirectory</title>
+  <meta name="description" content="Family owned roofing contractor in Hillsboro, Oregon offering inspections, repairs and full roof replacement.">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "RoofingContractor",
+    "name": "Cedar Ridge Roofing",
+    "description": "Family owned roofing contractor in Hillsboro, Oregon offering inspections, repairs and full roof replacement.",
+    "url": "https://www.cedar-ridge-roofing.example.com",
+    "telephone": "+1-503-555-0101",
+    "email": "info@cedar-ridge-roofing.example.com",
+    "address": {
+      "@type": "PostalAddress",
+      "streetAddress": "4820 Main St",
+      "addressLocality": "Hillsboro",
+      "addressRegion": "OR",
+      "postalCode": "97123"
+    },
+    "makesOffer": [
+      { "@type": "Offer", "name": "Roof Inspection" },
+      { "@type": "Offer", "name": "Shingle Replacement" }
+    ]
+  }
+  </script>
+</head>
+<body>
+  <nav class="breadcrumb"><a href="/">Home</a> / <a href="/Oregon">Oregon</a> / <span>Roofing</span></nav>
+  <main>
+    <h1 class="business-name">Cedar Ridge Roofing</h1>
+    <p class="business-description">Family owned roofing contractor in Hillsboro, Oregon offering inspections, repairs and full roof replacement.</p>
+    <address class="business-address">4820 Main St, Hillsboro, OR 97123</address>
+    <div class="contact">
+      <a href="tel:+15035550101">(503) 555-0101</a>
+      <a href="mailto:info@cedar-ridge-roofing.example.com">info@cedar-ridge-roofing.example.com</a>
+      <a class="website" rel="nofollow" href="https://www.cedar-ridge-roofing.example.com">Visit website</a>
+      <a href="https://www.facebook.com/cedarridgeroofing">Facebook</a>
+    </div>
+    <section id="services"><h2>Services</h2>
+      <ul class="services">
+        <li>Roof Inspection</li>
+        <li>Shingle Replacement</li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>

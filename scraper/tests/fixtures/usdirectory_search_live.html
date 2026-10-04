@@ -1,0 +1,62 @@
+<!--
+  Captured from the live site (https://usdirectory.com/Florida/Miami/Home-Services).
+  Structure only: the business names/phones below are the ones that page
+  actually published, and no contact details were invented.
+
+  This fixture exists because the live listing uses markup the synthetic
+  fixture never modelled, and every one of these was a real bug:
+
+    * results are `div.city-business-row` cards (not `li.listing`),
+    * every result is also published as JSON-LD `LocalBusiness` inside an
+      `ItemList` nested under `CollectionPage.mainEntity`,
+    * past page 2 the cards link to LEGACY profiles `/b/{id}/{slug}.aspx`
+      as well as the modern `/{Business}-{City}-{ST}` slugs.
+-->
+<!doctype html>
+<html lang="en">
+<head>
+  <title>Home Services Businesses in Miami, Florida | USdirectory</title>
+  <link rel="canonical" href="https://usdirectory.com/Florida/Miami/Home-Services">
+  <script type="application/ld+json">
+  [{"@context":"https://schema.org","@type":"CollectionPage","mainEntity":{"@type":"ItemList","numberOfItems":64,"itemListElement":[
+    {"@type":"ListItem","position":1,"item":{"@type":"LocalBusiness","id":"https://usdirectory.com/Jomada-Services-Corp-miami-FL-1","telephone":"(786)357-1584","name":"Jomada Services Corp","url":"https://usdirectory.com/Jomada-Services-Corp-miami-FL-1"}},
+    {"@type":"ListItem","position":2,"item":{"@type":"LocalBusiness","id":"https://usdirectory.com/b/352529/Professional-cleaning-Miami-Florida.aspx","telephone":"(305)555-0111","name":"Professional cleaning","url":"https://usdirectory.com/b/352529/Professional-cleaning-Miami-Florida.aspx"}}
+  ]}}]
+  </script>
+</head>
+<body>
+  <h1>Our Recommended <span>Home Services</span> in <span>Miami, FL</span></h1>
+  <div class="row">
+    <div class="col-12 col-md-6 col-lg-4 mb-3">
+      <div class="city-business-row card border-0 rounded-10px">
+        <a href="/Jomada-Services-Corp-miami-FL-1" class="city-business-row__thumb">
+          <img width="150" height="100" alt="Jomada Services Corp" title="Jomada Services Corp">
+        </a>
+        <div class="city-business-row__content">
+          <h3 class="city-business-row__title mb-1"><span class="clamped-1line">
+            <a href="/Jomada-Services-Corp-miami-FL-1">Jomada Services Corp</a>
+          </span></h3>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-md-6 col-lg-4 mb-3">
+      <div class="city-business-row card border-0 rounded-10px">
+        <a href="/b/352529/Professional-cleaning-Miami-Florida.aspx" class="city-business-row__thumb">
+          <img width="150" height="100" alt="Professional cleaning">
+        </a>
+        <div class="city-business-row__content">
+          <h3 class="city-business-row__title mb-1"><span class="clamped-1line">
+            <a href="/b/352529/Professional-cleaning-Miami-Florida.aspx">Professional cleaning</a>
+          </span></h3>
+        </div>
+      </div>
+    </div>
+  </div>
+  <nav class="pagination pagination-style-02 justify-content-center">
+    <a href="/Florida/Miami/Home-Services?page=2">2</a>
+    <a href="/Florida/Miami/Home-Services?page=3">3</a>
+    <a href="/Florida/Miami/Home-Services?page=4">4</a>
+  </nav>
+  <footer><a href="/About-Us">About</a></footer>
+</body>
+</html>

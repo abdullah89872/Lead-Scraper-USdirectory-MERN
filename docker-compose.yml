@@ -1,0 +1,98 @@
+# LeadForge AI - full stack (frontend, backend, scraper, mongodb, redis)
+#
+#   docker compose up --build
+#   docker compose exec backend npm run seed
+#
+# Default mode is MOCK: no request ever reaches usdirectory.com.
+# Set SCRAPER_MODE=live in backend/.env and scraper/.env for real runs.
+
+services:
+  mongodb:
+    image: mongo:7
+    container_name: leadforge-mongodb
+    restart: unless-stopped
+    volumes:
+      - mongodb-data:/data/db
+    ports:
+      - '27017:27017'
+    healthcheck:
+      test: ['CMD', 'mongosh', '--quiet', '--eval', "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: leadforge-redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  scraper:
+    build:
+      context: ./scraper
+    container_name: leadforge-scraper
+    restart: unless-stopped
+    env_file:
+      - ./scraper/.env
+    environment:
+      SCRAPER_MODE: ${SCRAPER_MODE:-mock}
+    ports:
+      - '8000:8000'
+    healthcheck:
+      test: ['CMD', 'python', '-c', "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    depends_on: []
+
+  backend:
+    build:
+      context: ./backend
+    container_name: leadforge-backend
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      NODE_ENV: production
+      PORT: '4000'
+      MONGO_URI: mongodb://mongodb:27017/leadforge
+      REDIS_URL: redis://redis:6379
+      QUEUE_DRIVER: redis
+      SCRAPER_URL: http://scraper:8000
+      SCRAPER_MODE: ${SCRAPER_MODE:-mock}
+      CLIENT_ORIGIN: http://localhost:8080
+      PUBLIC_API_URL: http://backend:4000
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-change-me-internal-token}
+      JWT_SECRET: ${JWT_SECRET:-change-me-jwt-secret}
+      WORKER_ENABLED: 'true'
+    ports:
+      - '4000:4000'
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:4000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: leadforge-frontend
+    restart: unless-stopped
+    ports:
+      - '8080:80'
+    depends_on:
+      - backend
+
+volumes:
+  mongodb-data:
