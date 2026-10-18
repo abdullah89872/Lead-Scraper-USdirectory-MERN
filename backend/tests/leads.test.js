@@ -130,6 +130,17 @@ describe('GET /api/leads', () => {
 
   it('rejects an invalid page number', async () => {
     const response = await client.get('/api/leads?page=0');
+    expect(response.status).toBe(400);
+  });
+
+  it('exposes filter dropdown values', async () => {
+    const response = await client.get('/api/leads/meta/filters');
+    expect(response.status).toBe(200);
+    expect(response.body.cities).toEqual(expect.arrayContaining(['Hillsboro', 'Portland']));
+    expect(response.body.sources).toContain('usdirectory');
+  });
+});
+
 describe('GET /api/leads/:id', () => {
   it('returns a single lead with its source URL', async () => {
     const lead = await Lead.findOne({ user: user._id, businessName: 'Cedar Ridge Roofing' });
@@ -197,15 +208,5 @@ describe('POST /api/leads/bulk-delete', () => {
     expect(response.status).toBe(200);
     expect(response.body.deleted).toBe(2);
     expect(await Lead.countDocuments({ user: user._id })).toBe(1);
-  });
-});
-    expect(response.status).toBe(400);
-  });
-
-  it('exposes filter dropdown values', async () => {
-    const response = await client.get('/api/leads/meta/filters');
-    expect(response.status).toBe(200);
-    expect(response.body.cities).toEqual(expect.arrayContaining(['Hillsboro', 'Portland']));
-    expect(response.body.sources).toContain('usdirectory');
   });
 });

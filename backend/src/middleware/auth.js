@@ -5,10 +5,12 @@ const env = require('../config/env');
 const User = require('../models/User');
 const logger = require('../config/logger');
 
-/** Sign a JWT for a user document. */
+/** Sign a JWT for a user document (or its public JSON form with `id`). */
 function signToken(user) {
+  const sub = user?._id ? user._id.toString() : user?.id ? String(user.id) : null;
+  if (!sub) throw new Error('signToken requires a user with _id or id');
   return jwt.sign(
-    { sub: user._id.toString(), role: user.role, email: user.email },
+    { sub, role: user.role, email: user.email },
     env.jwtSecret,
     { expiresIn: env.jwtExpiresIn }
   );

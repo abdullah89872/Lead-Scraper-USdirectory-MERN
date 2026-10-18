@@ -1,7 +1,7 @@
 # Windows setup (without Docker)
 
-Docker is the fastest path, but the whole stack runs natively on Windows. Only
-**Node.js 18+** and **Python 3.11+** are hard requirements.
+Docker is the fastest path, but the whole stack runs natively on Windows. Only **Node.js 18+**, **Python 3.11+**, and a configured MongoDB Atlas
+database are required. Redis is optional.
 
 ## 0. Check your tooling
 
@@ -70,6 +70,22 @@ node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 Paste the output into `JWT_SECRET` in `backend/.env`, and set a different
 value for `INTERNAL_API_TOKEN`.
 
+Configure Atlas in `backend/.env`:
+
+```env
+MONGODB_URI=mongodb+srv://<db_user>:<encoded_password>@<cluster-host>/?retryWrites=true&w=majority
+MONGODB_DB_NAME=leadforge
+```
+
+Create a least-privilege database user (read/write access to `leadforge` only)
+and allowlist the backend machine's IP in Atlas Network Access. Rotate any
+database password that has been shared in chat or another public location.
+Then test the connection:
+
+```powershell
+npm run db:check
+```
+
 ## 3. Frontend (Node)
 
 ```powershell
@@ -84,18 +100,12 @@ is required.
 
 Neither is required - the app degrades gracefully without them.
 
-### MongoDB
+### MongoDB Atlas
 
-Without it, set this in `backend/.env`:
-
-```env
-DB_DRIVER=memory
-```
-
-The API starts an ephemeral in-process MongoDB and logs a warning. **Data is
-lost when the process exits**, which is fine for demos but not for real work.
-
-To install MongoDB locally: <https://www.mongodb.com/try/download/community>
+Atlas is required for the backend to start. Missing or unreachable database
+configuration is reported explicitly; the app does not silently use an
+ephemeral development database. The test suite uses its own isolated
+in-memory MongoDB.
 
 ### Redis
 
@@ -143,10 +153,11 @@ Sign in with `demo@leadforge.test` / `Demo12345!`.
 | `EADDRINUSE :5173` | Vite already running | Stop it, or Vite will offer the next port |
 | Dashboard loads but all requests fail | Backend not running | Check terminal 2 |
 | Jobs stay `queued` | No worker running | Confirm terminal 2; check `QUEUE_DRIVER` |
-| `MongoDB unreachable` warning | No local MongoDB | Expected with `ALLOW_MEMORY_DB=true` |
+| `MONGODB_URI is required` | Atlas URI missing from `backend/.env` | Configure the Atlas connection string and run `npm run db:check` |
+| `Could not connect to MongoDB` | IP not allowlisted, wrong credentials, or Atlas is unavailable | Check Atlas Network Access and database-user permissions; never log or share the URI |
 | `SCRAPE_FAILED: fetch failed` | Python service down | Check terminal 1 |
 | All leads show "demo data" | `SCRAPER_MODE=mock` | Expected - see the mock mode docs |
-| `npm test` hangs for minutes on first run | Downloading the ~600 MB MongoDB binary | Let it finish once, or point `MONGO_URI` at a real MongoDB |
+| `npm test` takes time on first run | Downloading the test-only MongoDB binary | Let it finish once; later test runs use the cached binary |
 
 ## Verifying the install
 

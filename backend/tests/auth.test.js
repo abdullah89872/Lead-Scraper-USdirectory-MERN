@@ -143,6 +143,9 @@ describe('POST /api/auth/logout', () => {
 
 describe('roles', () => {
   it('makes the very first registered user an admin and later ones users', async () => {
+    // Precondition: the "first user" rule keys off an empty user collection.
+    // clearDb() deliberately preserves users, so reset it here.
+    await User.deleteMany({});
     const first = await request(app)
       .post('/api/auth/register')
       .send({ name: 'Admin', email: 'admin@example.test', password: 'Password123!' });

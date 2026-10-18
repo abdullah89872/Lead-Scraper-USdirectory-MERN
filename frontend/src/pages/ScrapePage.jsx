@@ -14,12 +14,14 @@ export default function ScrapePage() {
   const [form, setForm] = useState({
     source: 'usdirectory',
     category: '',
+    customCategory: '',
     location: '',
     maxLeads: 100,
     enrichment: true,
     ai: false,
   });
   const [settings, setSettings] = useState(null);
+  const [categories, setCategories] = useState([]);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -28,6 +30,10 @@ export default function ScrapePage() {
       .get('/settings')
       .then(({ data }) => setSettings(data))
       .catch(() => setSettings(null));
+    api
+      .get('/jobs/meta/categories')
+      .then(({ data }) => setCategories(data.categories || []))
+      .catch(() => setCategories([]));
   }, []);
 
   const update = (key) => (event) => {
@@ -78,16 +84,44 @@ export default function ScrapePage() {
             </Field>
 
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-              <Field label="Category" required hint="e.g. Roofing, Plumbing, Dentist">
-                <input
+              <Field label="Category" required hint="Choose a valid USdirectory category, or pick Other… to type a custom one.">
+                <select
                   className="input"
                   value={form.category}
-                  onChange={update('category')}
-                  placeholder="Roofing"
-                  minLength={2}
-                  maxLength={120}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setForm((prev) => ({
+                      ...prev,
+                      category: value === 'Other' ? (prev.customCategory || 'Other') : value,
+                    }));
+                  }}
                   required
-                />
+                >
+                  <option value="">Select a category</option>
+                  {categories.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                  <option value="Other">Other…</option>
+                </select>
+                {form.category === 'Other' && (
+                  <input
+                    className="input mt-2"
+                    value={form.customCategory || ''}
+                    placeholder="e.g. Roofing"
+                    minLength={2}
+                    maxLength={120}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      setForm((prev) => ({
+                        ...prev,
+                        category: value,
+                        customCategory: value,
+                      }));
+                    }}
+                  />
+                )}
               </Field>
 
               <Field label="Location" required hint='e.g. "Hillsboro, Oregon"'>

@@ -1,6 +1,15 @@
 'use strict';
 
 const { ZodError } = require('zod');
+const mongoose = require('mongoose');
+
+const DATABASE_UNAVAILABLE_ERRORS = new Set([
+  'MongoNetworkError',
+  'MongoServerSelectionError',
+  'MongoTopologyClosedError',
+  'MongoNotConnectedError',
+  'MongoPoolClearedError',
+]);
 
 /** Validate req.body / req.query / req.params against a zod schema map. */
 function validate(schemas = {}) {
@@ -46,6 +55,13 @@ function errorHandler(error, req, res, next) {
 
   if (error && error.code === 11000) {
     return res.status(409).json({ error: 'A record with those details already exists' });
+  }
+
+  const mongooseDisconnectedError = error?.name === 'MongooseError'
+    && mongoose.connection.readyState !== 1;
+  if (DATABASE_UNAVAILABLE_ERRORS.has(error?.name) || mongooseDisconnectedError) {
+    req.log?.error?.({ errorName: error.name, code: error.code }, 'database temporarily unavailable');
+    return res.status(503).json({ error: 'Database is temporarily unavailable. Please retry shortly.' });
   }
 
   const status = error.status || error.statusCode || 500;

@@ -3,12 +3,12 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import Layout from './components/Layout';
 import AuthPage from './pages/AuthPage';
 import Dashboard from './pages/Dashboard';
-import ExportsPage from './pages/ExportsPage';
+import EmailListValidationPage from './pages/EmailListValidationPage';
+import LeadsCsvValidationPage from './pages/LeadsCsvValidationPage';
 import JobDetailPage from './pages/JobDetailPage';
 import JobsPage from './pages/JobsPage';
 import LeadDetailPage from './pages/LeadDetailPage';
 import LeadsPage from './pages/LeadsPage';
-import ListsPage from './pages/ListsPage';
 import ScrapePage from './pages/ScrapePage';
 import SettingsPage from './pages/SettingsPage';
 import { Spinner } from './components/ui';
@@ -63,8 +63,9 @@ export default function App() {
           <Route path="jobs/:id" element={<JobDetailPage />} />
           <Route path="leads" element={<LeadsPage />} />
           <Route path="leads/:id" element={<LeadDetailPage />} />
-          <Route path="lists" element={<ListsPage />} />
-          <Route path="exports" element={<ExportsPage />} />
+          <Route path="emails" element={<Navigate to="/email-validation/option-1" replace />} />
+          <Route path="email-validation/option-1" element={<EmailListValidationPage />} />
+          <Route path="email-validation/option-2" element={<LeadsCsvValidationPage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
 

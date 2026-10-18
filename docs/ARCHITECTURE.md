@@ -3,6 +3,25 @@
 See the top-level [README](../README.md) for the full architecture diagram.
 This page records the decisions and their reasoning.
 
+## Persistent storage
+
+The Node API is the sole owner of application persistence and connects to
+MongoDB Atlas through the shared Mongoose module in `backend/src/db/connect.js`.
+The connection URI is read from `MONGODB_URI`, while `MONGODB_DB_NAME` selects
+the database. The backend validates the connection before listening and
+reports readiness through `/api/health`; database-dependent requests return
+`503` on recognized connectivity failures, while routes that do not need the
+database keep their normal responses. It never falls back to a volatile
+database in development or production.
+
+Mongoose models persist the `users`, `leads`, `jobs`, `leadlists`,
+`exportrecords`, `aicaches`, and `validationjobs` collections. Schemas,
+response formats, ownership checks, and existing indexes remain unchanged.
+The Python scraper returns JSON
+to the Node job runner, which normalizes/deduplicates and writes leads through
+Mongoose; Python does not store a second copy in MongoDB. Only Jest tests use
+`mongodb-memory-server`.
+
 ## Why the scraper is a separate service
 
 The Python scraper shares **no code** with the Node backend. The only coupling

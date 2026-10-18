@@ -23,7 +23,8 @@ const app = createApp();
 
 // [method, path, expected status]
 const CHECKS = [
-  ['get', '/api/health', 200],
+  // This route-level check does not connect a database, so readiness is 503.
+  ['get', '/api/health', 503],
   ['get', '/', 200],
   ['get', '/api/nope', 404],
   ['get', '/api/auth/me', 401],

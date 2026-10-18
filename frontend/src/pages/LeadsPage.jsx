@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Download, Search, Trash2, Users } from 'lucide-react';
 import api, { errorMessage } from '../lib/api';
-import { Alert, Badge, EmptyState, PageHeader, Spinner } from '../components/ui';
+import { Alert, Badge, EmptyState, PageHeader, Spinner, Toggle } from '../components/ui';
 import { EMAIL_STATUS_STYLES, displayHost, formatNumber, formatPhone } from '../lib/format';
 
 const PAGE_SIZE = 25;
@@ -28,7 +28,7 @@ async function downloadExport(format, params) {
   const blobUrl = URL.createObjectURL(new Blob([response.data]));
   const link = document.createElement('a');
   link.href = blobUrl;
-  link.download = `leadforge-leads.${format}`;
+  link.download = `${params.emailsOnly ? 'leadforge-emails' : 'leadforge-leads'}.${format}`;
   document.body.appendChild(link);
   link.click();
   link.remove();
@@ -187,6 +187,8 @@ export default function LeadsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState(searchParams.get('search') || '');
+  const [validOnly, setValidOnly] = useState(true);
+  const [emailsOnly, setEmailsOnly] = useState(false);
 
   // The URL is the single source of truth for the current view.
   const query = useMemo(() => {
@@ -253,7 +255,13 @@ export default function LeadsPage() {
     setError('');
     try {
       // Selected rows win over the active filters.
-      const params = selected.size ? { ids: [...selected].join(',') } : query;
+      const params = selected.size ? { ids: [...selected].join(',') } : { ...query };
+      // Only export leads whose email has been validated as valid.
+      if (validOnly && !selected.size) params.emailStatus = 'valid';
+      if (emailsOnly) {
+        params.emailsOnly = 'true';
+        params.hasEmail = 'true';
+      }
       await downloadExport(format, params);
     } catch (err) {
       setError(errorMessage(err, 'Export failed'));
@@ -269,7 +277,19 @@ return (
         title="Leads"
         subtitle="Search, filter and export every business LeadForge AI has collected."
         actions={
-          <>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Toggle
+              checked={validOnly}
+              onChange={setValidOnly}
+              label="Valid emails only"
+              description="Export only leads with a validated email address"
+            />
+            <Toggle
+              checked={emailsOnly}
+              onChange={setEmailsOnly}
+              label="Emails only"
+              description="Export just email addresses and exclude leads without one"
+            />
             <button type="button" className="btn-secondary" onClick={() => onExport('csv')}>
               <Download size={16} />
               CSV
@@ -281,7 +301,7 @@ return (
             <Link to="/scrape" className="btn-primary">
               New scrape
             </Link>
-          </>
+          </div>
         }
       />
 

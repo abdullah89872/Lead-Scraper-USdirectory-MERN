@@ -29,6 +29,7 @@ const listSchema = z.object({
     .enum(['not_attempted', 'completed', 'no_website', 'failed', 'skipped'])
     .optional(),
   hasEmail: booleanish.optional(),
+  emailsOnly: booleanish.optional(),
   hasPhone: booleanish.optional(),
   hasWebsite: booleanish.optional(),
   ids: z.string().trim().max(20000).optional(),

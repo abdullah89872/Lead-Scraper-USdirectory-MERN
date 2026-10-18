@@ -2,7 +2,8 @@
 
 const mongoose = require('mongoose');
 
-const EMAIL_STATUSES = ['valid', 'invalid', 'unknown'];
+const EMAIL_STATUSES = ['valid', 'invalid', 'risky', 'unknown', 'pending', 'error'];
+const LEGACY_EMAIL_STATUSES = ['valid', 'invalid', 'unknown'];
 const ENRICHMENT_STATUSES = [
   'not_attempted',
   'completed',
@@ -44,6 +45,29 @@ const leadSchema = new mongoose.Schema(
 
     // ---- metadata ----
     emailStatus: { type: String, enum: EMAIL_STATUSES, default: 'unknown', index: true },
+    // Full pipeline evidence (syntax/DNS/SMTP). Optional so legacy docs stay valid.
+    emailValidation: {
+      status: { type: String, enum: EMAIL_STATUSES, default: undefined },
+      confidence: { type: Number, min: 0, max: 100, default: undefined },
+      syntaxValid: { type: Boolean, default: undefined },
+      domainExists: { type: Boolean, default: undefined },
+      mxFound: { type: Boolean, default: undefined },
+      mxFallbackUsed: { type: Boolean, default: undefined },
+      disposable: { type: Boolean, default: undefined },
+      roleBased: { type: Boolean, default: undefined },
+      freeProvider: { type: Boolean, default: undefined },
+      catchAllSuspected: { type: Boolean, default: undefined },
+      smtpAttempted: { type: Boolean, default: undefined },
+      smtpResult: {
+        type: String,
+        enum: ['accepted', 'rejected', 'inconclusive', 'blocked', 'temp_failed', 'unavailable', 'not_attempted', 'error'],
+        default: undefined,
+      },
+      smtpCode: { type: String, default: undefined },
+      reason: { type: String, default: undefined, maxlength: 500 },
+      validatedAt: { type: Date, default: undefined },
+      fromCache: { type: Boolean, default: undefined },
+    },
     enrichmentStatus: {
       type: String,
       enum: ENRICHMENT_STATUSES,
@@ -65,6 +89,7 @@ leadSchema.index({ user: 1, sourceUrl: 1 });
 leadSchema.index({ user: 1, email: 1 });
 leadSchema.index({ user: 1, phone: 1 });
 leadSchema.index({ user: 1, businessName: 1 });
+leadSchema.index({ user: 1, emailStatus: 1, createdAt: -1 });
 
 leadSchema.virtual('location').get(function location() {
   return [this.city, this.state].filter(Boolean).join(', ') || null;
@@ -81,6 +106,7 @@ leadSchema.methods.toJSON = function toJSON() {
 };
 
 leadSchema.statics.EMAIL_STATUSES = EMAIL_STATUSES;
+leadSchema.statics.LEGACY_EMAIL_STATUSES = LEGACY_EMAIL_STATUSES;
 leadSchema.statics.ENRICHMENT_STATUSES = ENRICHMENT_STATUSES;
 
 module.exports = mongoose.models.Lead || mongoose.model('Lead', leadSchema);

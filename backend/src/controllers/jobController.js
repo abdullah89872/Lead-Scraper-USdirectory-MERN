@@ -131,4 +131,25 @@ const statuses = asyncHandler(async (req, res) => {
   });
 });
 
-module.exports = { cancel, create, getOne, list, remove, statuses };
+/** Valid usdirectory category options exposed to the UI for the scrape form dropdown.
+ * Mirrors the keys of CATEGORY_SYNONYMS in scraper/app/sources/usdirectory.py
+ * so the frontend only offers categories the directory actually recognises.
+ */
+const USDIRECTORY_CATEGORIES = [
+  'Plumbing', 'Plumber', 'Roofing', 'Roofer', 'Roofing Services',
+  'Siding', 'Painting', 'Contractor', 'General Contractor',
+  'Remodeling', 'Repair', 'HVAC', 'Air Conditioning', 'Heating',
+  'Landscaping', 'Lawn Care', 'Tree Service', 'Electrician',
+  'Electrical', 'Cleaning', 'Janitorial', 'Auto Repair',
+  'Automotive', 'Restaurant', 'Beauty Salon', 'Hair Salon',
+  'Barber', 'Law Firm', 'Attorney', 'Dentist', 'Doctor',
+  'Veterinarian', 'Pet', 'Real Estate', 'Accountant',
+  'Bank', 'Insurance', 'Florist', 'Gym', 'Salon',
+];
+
+/** GET /api/jobs/meta/categories - valid category options for the scrape form. */
+const categories = asyncHandler(async (_req, res) => {
+  res.json({ categories: USDIRECTORY_CATEGORIES });
+});
+
+module.exports = { cancel, create, getOne, list, remove, statuses, categories };

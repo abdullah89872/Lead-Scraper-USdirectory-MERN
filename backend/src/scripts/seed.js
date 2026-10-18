@@ -3,7 +3,7 @@
 /**
  * Seed the database with demo data.
  *
- *   npm run seed              -> demo user + 2 completed jobs + leads
+ *   npm run seed              -> demo user + 3 completed jobs + leads (safe to rerun)
  *   npm run seed -- --reset   -> wipe users/jobs/leads first
  *
  * Everything it creates is clearly synthetic (reserved 555-01xx numbers,
@@ -44,6 +44,22 @@ async function findOrCreateUser() {
 }
 
 async function seedJob(user, spec) {
+  const seedKey = `${spec.category.toLowerCase()}|${spec.location.toLowerCase()}`;
+  const existingJob = await Job.findOne({
+    user: user._id,
+    mode: 'mock',
+    'stats.seedKey': seedKey,
+  });
+  if (existingJob) {
+    const count = await Lead.countDocuments({
+      user: user._id,
+      job: existingJob._id,
+      demoData: true,
+    });
+    console.log(`  ${spec.category} in ${spec.location}: already seeded (${count} leads)`);
+    return { job: existingJob, count };
+  }
+
   const result = await mockScraper.scrape({
     category: spec.category,
     location: spec.location,
@@ -76,7 +92,7 @@ async function seedJob(user, spec) {
       leadsFound: batch.leads.length,
       updatedAt: new Date(),
     },
-    stats: result.stats,
+    stats: { ...(result.stats || {}), seedKey },
   });
 
   const docs = await Lead.insertMany(

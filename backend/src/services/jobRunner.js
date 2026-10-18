@@ -12,6 +12,7 @@
  */
 
 const Job = require('../models/Job');
+const ValidationJob = require('../models/ValidationJob');
 const env = require('../config/env');
 const logger = require('../config/logger');
 const aiService = require('./aiService');
@@ -26,6 +27,7 @@ const {
 const mockScraper = require('./mockScraper');
 const { normalizeLead } = require('./normalize');
 const scraperClient = require('./scraperClient');
+const { processValidationJob } = require('../controllers/emailValidationController');
 
 /**
  * Execute one scrape job.
@@ -165,6 +167,35 @@ async function finalizeSuccessfulJob(job, scrapeResult, reportProgress) {
   job.progress.updatedAt = new Date();
   if (!job.error) job.error = null;
   await job.save();
+
+  // ---- Auto-validation (fire-and-forget) ----------------------------------
+  if (env.validation.auto && persisted.docs.length) {
+    const leadIds = persisted.docs
+      .map((doc) => doc._id)
+      .filter((id) => id)
+      .map((id) => String(id));
+
+    if (leadIds.length) {
+      ValidationJob.create({
+        user: job.user,
+        kind: 'leads',
+        leadIds,
+        leadFilter: {},
+        options: {
+          batchSize: env.validation.batchSize,
+          concurrency: env.validation.concurrency,
+        },
+        status: 'queued',
+        progress: { stage: 'queued', percent: 0, message: 'Auto-queued after scrape', total: 0, processed: 0 },
+      })
+        .then((vjob) => processValidationJob(vjob._id).catch((err) => {
+          logger.error({ jobId: String(vjob._id), err: err.message }, 'auto-validation job failed');
+        }))
+        .catch((err) => {
+          logger.error({ jobId: String(job._id), err: err.message }, 'auto-validation job creation failed');
+        });
+    }
+  }
 
   logger.info(
     {

@@ -27,9 +27,18 @@ async function stopDb() {
 }
 
 async function clearDb() {
-  await Promise.all([
-    mongoose.modelNames().map((name) => mongoose.connection.collection(name).deleteMany({})),
-  ]);
+  // Clear every data collection but keep `users`: suite-level fixtures create
+  // the authenticated user once in beforeAll and hold a JWT for it, so wiping
+  // users would 401 the rest of the file. Tests that need an empty user set
+  // (e.g. the "first registered user is an admin" case) clear it explicitly.
+  //
+  // NOTE: use mongoose.connection.collections (model name -> real collection,
+  // e.g. Lead -> "leads"); connection.collection("Lead") would target a
+  // collection literally named "Lead" and silently delete nothing.
+  const collections = Object.entries(mongoose.connection.collections)
+    .filter(([name]) => name !== 'users')
+    .map(([, collection]) => collection.deleteMany({}));
+  await Promise.all(collections);
 }
 
 async function createUser({ email, password = 'Password123!', role = 'user', name = 'Test User' } = {}) {

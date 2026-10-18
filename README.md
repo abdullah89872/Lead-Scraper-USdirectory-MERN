@@ -47,13 +47,14 @@ Jobs        Status table with live SSE progress; detail page with cancel
 Leads       Search / filter / paginate / select, detail pages with provenance
 Lists       Named saved lead collections
 Exports     CSV + XLSX download history
+Validation  Email validation jobs + per-address results (sync + background)
 Settings    Runtime configuration (no secrets)
 ```
 
 **Lead fields stored** - `businessName`, `category`, `description`, `address`,
 `city`, `state`, `zip`, `phone`, `email`, `website`, `source`, `sourceUrl`,
 `sourceId`, `contactPageUrl`, `publicEmails`, `publicPhones`, `services`,
-`aiCategory`, `aiTags`, `aiDescription`, `emailStatus`, `enrichmentStatus`,
+`aiCategory`, `aiTags`, `aiDescription`, `emailStatus`, `emailValidation`, `enrichmentStatus`,
 `scrapedAt`, `createdAt`, `updatedAt`.
 
 Anything the source did not publish stays `null`. **No value is ever
@@ -83,11 +84,27 @@ USdirectory.com
 Extract -> Normalize -> Deduplicate -> Website Enrichment -> (optional AI)
       |
       v
-MongoDB -> Dashboard / CSV / XLSX export
+Email Validation (syntax + MX + disposable + role + SMTP)
+      | POST /scrape (normalized JSON response)
+      v
+Node normalizes + deduplicates, then persists through Mongoose
+      |
+      v
+MongoDB Atlas -> Dashboard / CSV / XLSX export
 ```
 
 The Python scraper is a **separate service** and shares no code with the Node
-backend. They communicate over a single HTTP call.
+backend. It returns normalized scrape records to the Node backend over
+`POST /scrape` and sends progress callbacks to a protected Node endpoint. Only
+the Node backend writes application data to MongoDB Atlas; the scraper never
+connects to the database directly.
+
+All durable application records use existing Mongoose models and Atlas
+collections: `users`, `leads`, `jobs`, `leadlists`, `exportrecords`,
+`aicaches`, and `validationjobs`. DNS caches, in-flight job progress, and
+test/mock scraper fixtures are intentionally transient. MongoDB is required
+in development and production; the API does not silently switch to volatile
+storage if Atlas is unavailable.
 
 ### Repository layout
 
@@ -176,7 +193,7 @@ docker compose up --build
 | Dashboard | http://localhost:8080 |
 | API | http://localhost:4000 |
 | Scraper | http://localhost:8000 |
-| MongoDB | mongodb://localhost:27017 |
+| MongoDB | Atlas cluster (`MONGODB_DB_NAME`, default `leadforge`) |
 | Redis | redis://localhost:6379 |
 
 Load demo data:
@@ -188,7 +205,7 @@ docker compose exec backend npm run seed
 ### Without Docker (Windows)
 
 **Prerequisites:** Node.js 18+, Python 3.11+. MongoDB and Redis are optional
-(see *Running without MongoDB / Redis* below).
+(Redis and Python remain optional; MongoDB Atlas is required).
 
 ```powershell
 # 1. Scraper
@@ -226,9 +243,12 @@ node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 | `JWT_SECRET` | insecure dev value | **Change this.** Signing key |
 | `JWT_EXPIRES_IN` | `7d` | Token lifetime |
 | `BCRYPT_ROUNDS` | `10` | Password hashing cost |
-| `DB_DRIVER` | `mongo` | `mongo` or `memory` |
-| `MONGO_URI` | `mongodb://127.0.0.1:27017/leadforge` | Database connection |
-| `ALLOW_MEMORY_DB` | `true` | Fall back to in-memory DB when Mongo is down |
+| `MONGODB_URI` | *(required)* | MongoDB Atlas connection string; keep it only in the ignored backend `.env` |
+| `MONGODB_DB_NAME` | `leadforge` | Database name selected by Mongoose |
+| `MONGODB_SERVER_SELECTION_TIMEOUT_MS` | `10000` | Time allowed to find an Atlas server |
+| `MONGODB_CONNECT_TIMEOUT_MS` | `10000` | Time allowed to establish a socket |
+| `MONGODB_SOCKET_TIMEOUT_MS` | `45000` | Socket inactivity timeout |
+| `MONGODB_MAX_POOL_SIZE` | `20` | Maximum pooled database connections |
 | `QUEUE_DRIVER` | `auto` | `auto`, `redis` or `inline` |
 | `REDIS_URL` | `redis://127.0.0.1:6379` | Redis connection |
 | `QUEUE_CONCURRENCY` | `2` | Jobs processed at once |
@@ -272,9 +292,44 @@ node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 
 ---
 
+### Email validation
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `EMAIL_VALIDATION_AUTO` | `true` | Auto-run validation after every successful scrape (fire-and-forget) |
+| `EMAIL_VALIDATION_VALID_POLICY` | `smtp` | Require positive SMTP recipient acceptance for a `valid` result (`dns` uses DNS evidence only) |
+| `EMAIL_VALIDATION_BATCH_SIZE` | `200` | Addresses processed per batch |
+| `EMAIL_VALIDATION_CONCURRENCY` | `10` | Parallel validation workers per background job |
+| `EMAIL_MAX_EMAILS_PER_REQUEST` | `200` | Cap for synchronous `POST /api/validate/emails` |
+| `VALIDATION_MAX_ACTIVE_JOBS` | `3` | Cap on concurrent background validation jobs |
+| `VALIDATION_CACHE_TTL_DAYS` | `7` | Days to cache validation results |
+| `DNS_TIMEOUT_MS` | `5000` | DNS/MX lookup timeout (ms) |
+| `DNS_CACHE_TTL_MS` | `3600000` | DNS cache TTL (ms) |
+| `DNS_NEGATIVE_CACHE_TTL_MS` | `60000` | DNS negative cache TTL (ms) |
+| `EMAIL_SMTP_ENABLED` | `true` | Run best-effort SMTP RCPT TO checks during validation |
+| `EMAIL_SMTP_TIMEOUT_MS` | `10000` | SMTP connection timeout (ms) |
+| `EMAIL_SMTP_MAX_CONCURRENCY` | `5` | Max concurrent SMTP connections |
+| `EMAIL_SMTP_RETRY_COUNT` | `1` | SMTP retry count |
+| `EMAIL_SMTP_RETRY_BACKOFF_MS` | `500` | SMTP retry backoff (ms) |
+| `EMAIL_SMTP_MIN_DELAY_MS` | `250` | Min spacing between SMTP connections |
+| `EMAIL_SMTP_ENVELOPE_FROM` | `probe@example.com` | Envelope sender for MAIL FROM |
+| `EMAIL_SMTP_PORT` | `25` | SMTP destination port |
+| `EMAIL_SMTP_MAX_MX_TRIES` | `3` | Max MX servers to try per domain |
+| `CSV_UPLOAD_MAX_BYTES` | `5242880` | Max CSV upload file size (bytes) |
+| `CSV_UPLOAD_MAX_ROWS` | `50000` | Max CSV rows per upload |
+| `CSV_UPLOAD_MAX_COLUMNS` | `100` | Max CSV columns per upload |
+
 ## Running the app
 
-Open **three terminals**.
+First set `MONGODB_URI` and `MONGODB_DB_NAME` in `backend/.env` (see [MongoDB
+Atlas setup](#mongodb-atlas-setup)) and verify connectivity:
+
+```powershell
+cd leadforge-ai\backend
+npm run db:check
+```
+
+Then open **three terminals**.
 
 ```powershell
 # Terminal 1 - scraper
@@ -297,16 +352,45 @@ npm run dev
 
 Open <http://localhost:5173>, register an account and start scraping.
 
-### Running without MongoDB / Redis
+### Running without Redis or the Python scraper
 
 The stack is designed to start on a clean machine:
 
-- **No MongoDB?** Set `DB_DRIVER=memory`. The API spins up an ephemeral
-  in-process MongoDB and logs a loud warning. Data is lost on exit.
 - **No Redis?** Leave `QUEUE_DRIVER=auto`. The API logs
   `Redis unavailable - running jobs inline` and processes jobs in-process.
 - **No Python?** Keep `SCRAPER_MODE=mock`. The Node mock scraper produces
   equivalent leads without the Python service.
+
+MongoDB Atlas is required for the backend to start. If it cannot connect, the
+backend exits with a credential-safe diagnostic and `/api/health` reports
+`503` while the database is unavailable.
+
+### MongoDB Atlas setup
+
+1. Create an Atlas project and cluster.
+2. Create a database user with a strong, unique password and the minimum
+   required role: `readWrite` on the `leadforge` database.
+3. In **Network Access**, allow the backend host's fixed/deployment IP or
+   narrowly scoped development IP. Do not make `0.0.0.0/0` a permanent rule.
+4. In Atlas, choose **Connect → Drivers → Node.js** and copy the connection
+   string. Keep the URI password URL-encoded if it contains special characters.
+5. Put the URI only in `backend/.env`:
+
+   ```env
+   MONGODB_URI=mongodb+srv://<db_user>:<encoded_password>@<cluster-host>/?retryWrites=true&w=majority
+   MONGODB_DB_NAME=leadforge
+   ```
+
+6. Run `cd backend` then `npm install`, followed by `npm run db:check`.
+   `MONGODB_URI` is never read by the React frontend.
+7. Start the Python scraper, Node backend, and React frontend with the project
+   commands above. For Docker Compose, also set `MONGODB_URI` in the root `.env`.
+
+The Node backend uses Mongoose and the existing model schemas/indexes. It waits
+for the database before opening the API port; Mongo connection errors never
+trigger an in-memory fallback. Existing synthetic sample data can be added
+with `npm run seed`; the script is safe to rerun. The old dev database was
+ephemeral and its records are already lost, so it cannot be migrated to Atlas.
 
 ### Optional: dedicated worker
 
@@ -341,7 +425,8 @@ npm run seed -- --reset # wipe leads/jobs/users first
 ```
 
 Creates `demo@leadforge.test` / `Demo12345!` with three completed jobs
-(Roofing in Hillsboro, Plumbing in Portland, Electrician in Beaverton).
+(Roofing in Hillsboro, Plumbing in Portland, Electrician in Beaverton). Seed
+records are synthetic and rerunning the seed command does not duplicate them.
 
 ---
 
@@ -359,15 +444,13 @@ cd backend
 npm test
 ```
 
-> **First backend run downloads MongoDB.** The database-backed suites use
-> `mongodb-memory-server`, which fetches a ~600 MB `mongod` binary on first use
-> and caches it under `node_modules/.cache`. It needs a one-off download; every
-> later run is offline. To skip the download entirely, point the tests at a
-> running MongoDB instead by setting `MONGO_URI` in your shell:
+> **First backend test run downloads MongoDB.** The database-backed suites use
+> `mongodb-memory-server`, which fetches a `mongod` binary and caches it for
+> tests only. Tests never connect to Atlas. To use a local test MongoDB instead:
 >
 > ```powershell
 > $env:DB_DRIVER = "mongo"
-> $env:MONGO_URI = "mongodb://127.0.0.1:27017/leadforge_test"
+> $env:MONGODB_URI = "mongodb://127.0.0.1:27017/leadforge_test"
 > npm test
 > ```
 
@@ -552,8 +635,12 @@ website enrichment are inherited for free.
   `live` job with `maxLeads=5` and review the output before scaling up.
 - **Rate limits are conservative by design.** A 100-lead job at a 1.2 s delay
   with two workers takes several minutes. This is intentional.
-- **Emails are not verified for deliverability.** They are validated
-  syntactically only. `emailStatus` reflects syntax, not deliverability.
+- **Emails are not guaranteed deliverable.** Validation covers syntax, MX/domain
+  lookup, disposable and role-based detection, plus SMTP RCPT TO checks.
+  SMTP validation is best-effort: many mail servers accept all recipients
+  (catch-all) or block probing entirely. Blocked or inconclusive checks are
+  reported as `unknown`; even an SMTP-accepted `"valid"` result does not
+  guarantee that the inbox exists or will receive a message.
 - **AI is optional and may be unavailable.** Without `AI_ENABLED=true` and a key,
   the AI fields stay empty.
 - **XLSX export builds the workbook in memory** while streaming rows. Fine for

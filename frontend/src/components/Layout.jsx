@@ -4,7 +4,6 @@ import {
   Download,
   FileSpreadsheet,
   Gauge,
-  List,
   LogOut,
   Menu,
   Rocket,
@@ -19,8 +18,8 @@ const NAV = [
   { to: '/scrape', label: 'Scrape Leads', icon: Rocket },
   { to: '/jobs', label: 'Jobs', icon: FileSpreadsheet },
   { to: '/leads', label: 'Leads', icon: Users },
-  { to: '/lists', label: 'Lists', icon: List },
-  { to: '/exports', label: 'Exports', icon: Download },
+  { to: '/email-validation/option-1', label: 'Validate email list', icon: FileSpreadsheet },
+  { to: '/email-validation/option-2', label: 'Validate leads CSV', icon: FileSpreadsheet },
   { to: '/settings', label: 'Settings', icon: SettingsIcon },
 ];
 

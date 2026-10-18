@@ -5,51 +5,76 @@ const env = require('../config/env');
 const logger = require('../config/logger');
 
 let memoryServer = null;
+let connectionEventsRegistered = false;
 
 /**
- * Connect to MongoDB.
- *
- * DB_DRIVER=mongo  -> use MONGO_URI
- * DB_DRIVER=memory -> ephemeral in-process MongoDB (dev/testing only)
- *
- * When ALLOW_MEMORY_DB=true and the configured server is unreachable we fall
- * back to the in-memory server and log a loud warning, so the app is always
- * runnable in a fresh Windows environment without Docker.
+ * Connect to the configured persistent MongoDB deployment.
+ * The ephemeral server is intentionally available only to the test suite.
  */
 async function connectDb() {
   mongoose.set('strictQuery', true);
+  mongoose.set('bufferCommands', false);
+  registerConnectionEvents();
 
-  const useMemory = env.dbDriver === 'memory' || (env.isTest && !process.env.MONGO_URI);
+  if (env.isTest && process.env.DB_DRIVER === 'memory') {
+    return startMemoryDb();
+  }
 
-  if (useMemory) {
-    return startMemoryDb('DB_DRIVER=memory');
+  if (!env.mongodbUri) {
+    throw new Error('MONGODB_URI is required. Configure a MongoDB Atlas connection string in backend/.env.');
   }
 
   try {
-    await mongoose.connect(env.mongoUri, { serverSelectionTimeoutMS: 8000 });
-    logger.info({ uri: redact(env.mongoUri) }, 'connected to MongoDB');
+    await mongoose.connect(env.mongodbUri, {
+      dbName: env.mongodbDbName,
+      serverSelectionTimeoutMS: env.mongodbServerSelectionTimeoutMs,
+      connectTimeoutMS: env.mongodbConnectTimeoutMs,
+      socketTimeoutMS: env.mongodbSocketTimeoutMs,
+      maxPoolSize: env.mongodbMaxPoolSize,
+    });
+    logger.info({ database: env.mongodbDbName }, 'connected to MongoDB');
     return mongoose.connection;
   } catch (error) {
-    if (!env.allowMemoryDb) throw error;
-    logger.warn(
-      { err: error.message },
-      'MongoDB unreachable - falling back to an in-memory database (data is not persisted)'
+    const message = safeErrorMessage(error);
+    logger.error({ errorName: error.name, code: error.code, err: message }, 'MongoDB connection failed');
+    throw new Error(
+      `Could not connect to MongoDB database "${env.mongodbDbName}": ${message}. `
+      + 'Check MONGODB_URI, Atlas Network Access, and the database user permissions.'
     );
-    return startMemoryDb(error.message);
   }
 }
 
-async function startMemoryDb(reason) {
+function registerConnectionEvents() {
+  if (connectionEventsRegistered) return;
+  connectionEventsRegistered = true;
+
+  mongoose.connection.on('disconnected', () => {
+    logger.warn({ database: env.mongodbDbName }, 'MongoDB connection lost; waiting for reconnection');
+  });
+  mongoose.connection.on('reconnected', () => {
+    logger.info({ database: env.mongodbDbName }, 'MongoDB connection restored');
+  });
+  mongoose.connection.on('error', (error) => {
+    logger.error(
+      { errorName: error.name, code: error.code, err: safeErrorMessage(error) },
+      'MongoDB connection error'
+    );
+  });
+}
+
+async function startMemoryDb() {
   const { MongoMemoryServer } = require('mongodb-memory-server');
-  // The library's default 10s launch timeout is not always enough on a cold or
-  // busy Windows host: mongod occasionally needs longer to boot, and the API
-  // then dies with "Instance failed to start within 10000ms". Give it room.
   memoryServer = await MongoMemoryServer.create({
     instance: { launchTimeout: 60000 },
   });
-  const uri = memoryServer.getUri('leadforge');
-  await mongoose.connect(uri, { serverSelectionTimeoutMS: 8000 });
-  logger.warn({ uri, reason }, 'using in-memory MongoDB (development only)');
+  await mongoose.connect(memoryServer.getUri(env.mongodbDbName), {
+    dbName: env.mongodbDbName,
+    serverSelectionTimeoutMS: env.mongodbServerSelectionTimeoutMs,
+    connectTimeoutMS: env.mongodbConnectTimeoutMs,
+    socketTimeoutMS: env.mongodbSocketTimeoutMs,
+    maxPoolSize: env.mongodbMaxPoolSize,
+  });
+  logger.info('connected to isolated in-memory MongoDB for tests');
   return mongoose.connection;
 }
 
@@ -62,7 +87,13 @@ async function disconnectDb() {
 }
 
 function redact(uri) {
-  return String(uri).replace(/\/\/[^@]+@/, '//***:***@');
+  return String(uri)
+    .replace(/(mongodb(?:\+srv)?:\/\/)[^@/]+@/i, '$1[redacted]@')
+    .replace(/([?&](?:password|pwd)=)[^&\s]+/gi, '$1[redacted]');
+}
+
+function safeErrorMessage(error) {
+  return redact(String(error?.message || 'Unknown MongoDB connection error'));
 }
 
 module.exports = { connectDb, disconnectDb, redact };

@@ -26,6 +26,14 @@ const EXPORT_COLUMNS = [
   { key: 'aiCategory', header: 'AI Category', width: 20 },
   { key: 'aiTags', header: 'AI Tags', width: 28 },
   { key: 'emailStatus', header: 'Email Status', width: 14 },
+  { key: 'emailConfidence', header: 'Email Confidence', width: 12 },
+  { key: 'emailSyntaxValid', header: 'Syntax Valid', width: 12 },
+  { key: 'emailDomainExists', header: 'Domain Exists', width: 14 },
+  { key: 'emailMxFound', header: 'MX Found', width: 10 },
+  { key: 'emailDisposable', header: 'Disposable', width: 12 },
+  { key: 'emailRoleBased', header: 'Role Based', width: 12 },
+  { key: 'emailSmtpResult', header: 'SMTP Result', width: 16 },
+  { key: 'emailReason', header: 'Validation Reason', width: 40 },
   { key: 'enrichmentStatus', header: 'Enrichment Status', width: 18 },
   { key: 'scrapedAt', header: 'Scraped At', width: 22 },
 ];
@@ -55,7 +63,12 @@ async function buildLeadQuery(userId, query = {}) {
 
   if (query.job && mongoose.isValidObjectId(query.job)) filter.job = query.job;
 
-  if (String(query.hasEmail).toLowerCase() === 'true') filter.email = { $ne: null };
+  if (
+    String(query.emailsOnly).toLowerCase() === 'true' ||
+    String(query.hasEmail).toLowerCase() === 'true'
+  ) {
+    filter.email = { $exists: true, $nin: [null, ''] };
+  }
   if (String(query.hasPhone).toLowerCase() === 'true') filter.phone = { $ne: null };
   if (String(query.hasWebsite).toLowerCase() === 'true') filter.website = { $ne: null };
 
@@ -78,7 +91,7 @@ async function buildLeadQuery(userId, query = {}) {
 function buildSort(sort = '-createdAt') {
   const allowed = new Set([
     'createdAt', 'updatedAt', 'businessName', 'city', 'state', 'category',
-    'scrapedAt', 'email', 'enrichmentStatus',
+    'scrapedAt', 'email', 'enrichmentStatus', 'emailStatus',
   ]);
   const descending = String(sort).startsWith('-');
   const field = String(sort).replace(/^-/, '');
@@ -134,6 +147,7 @@ const formatDate = (value) => (value ? new Date(value).toISOString() : '');
 /** Flatten a lead document into a plain export row. */
 function toExportRow(lead) {
   const obj = typeof lead.toObject === 'function' ? lead.toObject() : lead;
+  const ev = obj.emailValidation || {};
   const row = {};
   EXPORT_COLUMNS.forEach(({ key }) => {
     let value = obj[key];
@@ -141,6 +155,22 @@ function toExportRow(lead) {
       value = joinList(value);
     } else if (key === 'scrapedAt') {
       value = formatDate(value);
+    } else if (key === 'emailConfidence') {
+      value = ev.confidence !== undefined ? ev.confidence : '';
+    } else if (key === 'emailSyntaxValid') {
+      value = ev.syntaxValid !== undefined ? (ev.syntaxValid ? 'yes' : 'no') : '';
+    } else if (key === 'emailDomainExists') {
+      value = ev.domainExists !== undefined ? (ev.domainExists ? 'yes' : 'no') : '';
+    } else if (key === 'emailMxFound') {
+      value = ev.mxFound !== undefined ? (ev.mxFound ? 'yes' : 'no') : '';
+    } else if (key === 'emailDisposable') {
+      value = ev.disposable !== undefined ? (ev.disposable ? 'yes' : 'no') : '';
+    } else if (key === 'emailRoleBased') {
+      value = ev.roleBased !== undefined ? (ev.roleBased ? 'yes' : 'no') : '';
+    } else if (key === 'emailSmtpResult') {
+      value = ev.smtpResult !== undefined ? ev.smtpResult : '';
+    } else if (key === 'emailReason') {
+      value = ev.reason || '';
     }
     row[key] = value === undefined || value === null ? '' : value;
   });

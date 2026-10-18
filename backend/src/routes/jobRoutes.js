@@ -12,6 +12,12 @@ const router = express.Router();
 
 router.use(requireAuth);
 
+// z.coerce.boolean() would turn the *string* "false" into `true`; form-style
+// clients send strings, so parse them explicitly (same pattern as leads).
+const booleanish = z
+  .union([z.boolean(), z.enum(['true', 'false', '1', '0'])])
+  .transform((value) => value === true || value === 'true' || value === '1');
+
 const createJobSchema = z.object({
   source: z.string().trim().min(1).max(60).default('usdirectory'),
   category: z
@@ -30,8 +36,8 @@ const createJobSchema = z.object({
     .min(1, 'Maximum leads must be at least 1')
     .max(1000, 'Maximum leads cannot exceed 1000')
     .default(100),
-  enrichment: z.coerce.boolean().default(true),
-  ai: z.coerce.boolean().default(false),
+  enrichment: booleanish.default(true),
+  ai: booleanish.default(false),
 });
 
 const listSchema = z.object({
@@ -45,6 +51,9 @@ router.post('/', rateLimiters.jobLimiter, validate({ body: createJobSchema }), j
 
 // GET /api/jobs/meta/statuses  (declared before "/:id" so it is not swallowed)
 router.get('/meta/statuses', jobController.statuses);
+
+// GET /api/jobs/meta/categories  (valid usdirectory categories for the scrape form)
+router.get('/meta/categories', jobController.categories);
 
 // GET /api/jobs
 router.get('/', validate({ query: listSchema }), jobController.list);

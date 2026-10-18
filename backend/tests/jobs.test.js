@@ -59,6 +59,33 @@ describe('POST /api/jobs', () => {
     expect(response.status).toBe(400);
     expect(response.body.error).toBe('Validation failed');
     expect(Array.isArray(response.body.details)).toBe(true);
+  });
+
+  it('defaults maxLeads, enrichment and ai', async () => {
+    const response = await client.post('/api/jobs').send({
+      category: 'Roofing',
+      location: 'Hillsboro, Oregon',
+    });
+    expect(response.body.job.maxLeads).toBe(100);
+    expect(response.body.job.enrichment).toBe(true);
+    expect(response.body.job.ai).toBe(false);
+  });
+
+  it('coerces string booleans from form-style input', async () => {
+    const response = await client.post('/api/jobs').send({
+      category: 'Roofing',
+      location: 'Hillsboro, Oregon',
+      maxLeads: '10',
+      enrichment: 'false',
+      ai: 'true',
+    });
+    expect(response.status).toBe(201);
+    expect(response.body.job.maxLeads).toBe(10);
+    expect(response.body.job.enrichment).toBe(false);
+    expect(response.body.job.ai).toBe(true);
+  });
+});
+
 describe('GET /api/jobs', () => {
   it('lists only the authenticated user\'s jobs', async () => {
     await client.post('/api/jobs').send({
@@ -166,31 +193,5 @@ describe('POST /api/jobs/:id/cancel', () => {
     });
     const response = await client.post(`/api/jobs/${job.id}/cancel`);
     expect(response.status).toBe(404);
-  });
-});
-  });
-
-  it('defaults maxLeads, enrichment and ai', async () => {
-    const response = await client.post('/api/jobs').send({
-      category: 'Roofing',
-      location: 'Hillsboro, Oregon',
-    });
-    expect(response.body.job.maxLeads).toBe(100);
-    expect(response.body.job.enrichment).toBe(true);
-    expect(response.body.job.ai).toBe(false);
-  });
-
-  it('coerces string booleans from form-style input', async () => {
-    const response = await client.post('/api/jobs').send({
-      category: 'Roofing',
-      location: 'Hillsboro, Oregon',
-      maxLeads: '10',
-      enrichment: 'false',
-      ai: 'true',
-    });
-    expect(response.status).toBe(201);
-    expect(response.body.job.maxLeads).toBe(10);
-    expect(response.body.job.enrichment).toBe(false);
-    expect(response.body.job.ai).toBe(true);
   });
 });
